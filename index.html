@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EXIF Viewer with Map & Preview</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 24px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 30px;
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        h1 i {
+            color: #667eea;
+            font-size: 2rem;
+        }
+
+        .subtitle {
+            color: #718096;
+            margin-bottom: 30px;
+            font-size: 1rem;
+            border-left: 4px solid #667eea;
+            padding-left: 16px;
+        }
+
+        /* Upload area */
+        .upload-area {
+            background: #f7fafc;
+            border: 2px dashed #cbd5e0;
+            border-radius: 16px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 30px;
+        }
+
+        .upload-area:hover {
+            border-color: #667eea;
+            background: #f0f4f8;
+        }
+
+        .upload-area i {
+            font-size: 48px;
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .upload-area p {
+            color: #4a5568;
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+        }
+
+        .upload-area small {
+            color: #a0aec0;
+            font-size: 0.9rem;
+        }
+
+        #upload {
+            display: none;
+        }
+
+        /* Loading */
+        #loading {
+            display: none;
+            text-align: center;
+            color: #667eea;
+            margin: 20px 0;
+            font-weight: 500;
+        }
+
+        #loading i {
+            margin-right: 8px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Content Grid */
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+            margin-top: 20px;
+        }
+
+        /* Preview Card */
+        .preview-card {
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            border: 1px solid #e2e8f0;
+        }
+
+        .preview-header {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            font-weight: 600;
+            color: #2d3748;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .preview-header i {
+            color: #667eea;
+        }
+
+        .preview-image {
+            width: 100%;
+            height: 300px;
+            object-fit: contain;
+            background: #f1f5f9;
+            display: block;
+        }
+
+        /* Info Card */
+        .info-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            border: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .info-header {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            font-weight: 600;
+            color: #2d3748;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .info-content {
+            padding: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-size: 0.9rem;
+            background: #fafbfc;
+        }
+
+        .exif-item {
+            display: flex;
+            border-bottom: 1px solid #edf2f7;
+            padding: 8px 0;
+        }
+
+        .exif-item:last-child {
+            border-bottom: none;
+        }
+
+        .exif-tag {
+            font-weight: 600;
+            color: #4a5568;
+            width: 40%;
+            flex-shrink: 0;
+        }
+
+        .exif-value {
+            color: #2d3748;
+            word-break: break-word;
+            width: 60%;
+        }
+
+        .no-gps {
+            color: #718096;
+            font-style: italic;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        /* Map Card */
+        .map-card {
+            grid-column: span 2;
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            border: 1px solid #e2e8f0;
+            margin-top: 10px;
+        }
+
+        .map-header {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            font-weight: 600;
+            color: #2d3748;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #map {
+            height: 350px;
+            width: 100%;
+            display: none;
+        }
+
+        /* API Key Note */
+        .api-note {
+            background: #fed7d7;
+            border: 1px solid #fc8181;
+            color: #c53030;
+            padding: 12px 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .api-note i {
+            font-size: 1.2rem;
+        }
+
+        .api-note a {
+            color: #9b2c2c;
+            font-weight: 600;
+            text-decoration: underline;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+            .map-card {
+                grid-column: span 1;
+            }
+            .container {
+                padding: 20px;
+            }
+        }
+    </style>
+
+    <!-- Google Maps API (GANTI YOUR_API_KEY) -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB41DRUbKWJHPxaFjMAwdrzWzbVKartNGg&libraries=places"></script>
+    <!-- exifr -->
+    <script src="https://cdn.jsdelivr.net/npm/exifr@latest/dist/lite.umd.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>
+            <i class="fas fa-camera-retro"></i> 
+            EXIF Explorer
+        </h1>
+        <div class="subtitle">
+            Unggah foto untuk melihat metadata EXIF, pratinjau gambar, dan lokasi pengambilan (jika tersedia).
+			<p>Format: JPEG, PNG, WebP, HEIC (max 20MB)</p>
+        </div>
+
+        <!-- API Key reminder (bisa dihapus jika sudah diisi) -->
+        <div class="api-note" id="apiNote">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span>Jangan lupa ganti <code>YOUR_API_KEY</code> pada script Google Maps dengan API key valid.</span>
+        </div>
+
+        <!-- Upload area -->
+        <label for="upload" class="upload-area" id="uploadArea">
+            <i class="fas fa-cloud-upload-alt"></i>
+            <small>Pilih foto atau seret ke sini</small>
+		</label>
+        <input type="file" id="upload" accept="image/*">
+		<br>
+		<br>
+		<br>
+        <!-- Loading -->
+        <div id="loading">
+            <i class="fas fa-spinner"></i> Memproses file...
+        </div>
+
+        <!-- Grid konten (akan muncul setelah file dipilih) -->
+        <div class="content-grid" id="contentGrid" style="display: none;">
+            <!-- Preview card -->
+            <div class="preview-card">
+                <div class="preview-header">
+                    <i class="fas fa-image"></i> Pratinjau Gambar
+                </div>
+                <img id="preview" class="preview-image" src="" alt="Preview">
+            </div>
+
+            <!-- EXIF info card -->
+            <div class="info-card">
+                <div class="info-header">
+                    <i class="fas fa-info-circle"></i> Metadata EXIF
+                </div>
+                <div class="info-content" id="exifInfo">
+                    <!-- Akan diisi oleh JavaScript -->
+                </div>
+            </div>
+
+            <!-- Map card (akan muncul jika ada GPS) -->
+            <div class="map-card" id="mapCard" style="display: none;">
+                <div class="map-header">
+                    <i class="fas fa-map-marker-alt"></i> Lokasi Pengambilan
+                </div>
+                <div id="map"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Elemen DOM
+        const uploadInput = document.getElementById('upload');
+        const uploadArea = document.getElementById('uploadArea');
+        const loadingDiv = document.getElementById('loading');
+        const contentGrid = document.getElementById('contentGrid');
+        const previewImg = document.getElementById('preview');
+        const exifInfoDiv = document.getElementById('exifInfo');
+        const mapCard = document.getElementById('mapCard');
+        const mapDiv = document.getElementById('map');
+        const apiNote = document.getElementById('apiNote');
+
+        // Variabel Google Maps
+        let map = null;
+        let marker = null;
+
+        // Fungsi untuk menginisialisasi Google Maps
+        function initGoogleMap(lat, lng) {
+            mapCard.style.display = 'block';
+            mapDiv.style.display = 'block';
+
+            // Pastikan google maps sudah dimuat
+            if (typeof google !== 'undefined' && google.maps) {
+                map = new google.maps.Map(mapDiv, {
+                    center: { lat, lng },
+                    zoom: 15,
+                    mapTypeControl: true,
+                    fullscreenControl: true,
+                    streetViewControl: true
+                });
+
+                marker = new google.maps.Marker({
+                    position: { lat, lng },
+                    map: map,
+                    title: 'Lokasi foto',
+                    animation: google.maps.Animation.DROP
+                });
+
+                // Sembunyikan notifikasi API jika sukses
+                apiNote.style.display = 'none';
+            } else {
+                mapDiv.innerHTML = '<p style="padding:20px;color:red;">Google Maps gagal dimuat. Periksa API key.</p>';
+            }
+        }
+
+        // Konversi koordinat dari format EXIF ke desimal
+        function parseExifrCoordinates(lat, lon, latRef, lonRef) {
+            const toDecimal = (coord, ref) => {
+                if (!coord) return null;
+                if (typeof coord === 'number') return ref === 'S' || ref === 'W' ? -coord : coord;
+                if (Array.isArray(coord) && coord.length >= 3) {
+                    const [deg, min, sec] = coord.map(v => {
+                        if (Array.isArray(v) && v.length === 2) return v[0] / v[1];
+                        return parseFloat(v);
+                    });
+                    let decimal = deg + min/60 + sec/3600;
+                    if (ref === 'S' || ref === 'W') decimal = -decimal;
+                    return decimal;
+                }
+                return null;
+            };
+
+            const latDec = toDecimal(lat, latRef);
+            const lonDec = toDecimal(lon, lonRef);
+            if (latDec !== null && lonDec !== null && !isNaN(latDec) && !isNaN(lonDec)) {
+                return { lat: latDec, lon: lonDec };
+            }
+            return null;
+        }
+
+        // Format tampilan EXIF (mengubah objek menjadi daftar exif-item)
+        function renderExif(output) {
+            let html = '';
+            for (let [key, value] of Object.entries(output)) {
+                // Skip binary large fields
+                if (key === 'thumbnail' || key === 'thumbnailBuffer' || key === 'imageBuffer') continue;
+
+                let displayValue;
+                if (value && typeof value === 'object') {
+                    if (value instanceof Date) {
+                        displayValue = value.toString();
+                    } else if (Array.isArray(value)) {
+                        displayValue = JSON.stringify(value);
+                    } else {
+                        // Coba tampilkan sebagai string, hindari buffer besar
+                        try {
+                            displayValue = JSON.stringify(value, (k, v) => {
+                                if (k === 'data' && v && v.length > 50) return '[buffer]';
+                                return v;
+                            });
+                        } catch {
+                            displayValue = '[Complex Object]';
+                        }
+                    }
+                } else {
+                    displayValue = value;
+                }
+
+                // Batasi panjang agar tidak overflow
+                if (displayValue && displayValue.length > 100) {
+                    displayValue = displayValue.substring(0, 100) + '…';
+                }
+
+                html += `
+                    <div class="exif-item">
+                        <span class="exif-tag">${key}</span>
+                        <span class="exif-value">${displayValue || '—'}</span>
+                    </div>
+                `;
+            }
+
+            if (html === '') {
+                html = '<p class="no-gps"><i class="fas fa-exclamation-circle"></i> Tidak ada data EXIF</p>';
+            }
+            exifInfoDiv.innerHTML = html;
+        }
+
+        // Event: klik upload area
+        uploadArea.addEventListener('click', () => uploadInput.click());
+
+        // Event: drag & drop sederhana
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.style.borderColor = '#667eea';
+            uploadArea.style.background = '#f0f4f8';
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.style.borderColor = '#cbd5e0';
+            uploadArea.style.background = '#f7fafc';
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.style.borderColor = '#cbd5e0';
+            uploadArea.style.background = '#f7fafc';
+            const files = e.dataTransfer.files;
+            if (files.length) {
+                uploadInput.files = files;
+                // Trigger change event manually
+                const event = new Event('change', { bubbles: true });
+                uploadInput.dispatchEvent(event);
+            }
+        });
+
+        // Event: file dipilih
+        uploadInput.addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // Tampilkan loading, sembunyikan konten lama
+            loadingDiv.style.display = 'block';
+            contentGrid.style.display = 'none';
+            mapCard.style.display = 'none';
+            mapDiv.style.display = 'none';
+            previewImg.src = '';
+
+            // Preview gambar
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                previewImg.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+
+            try {
+                // Baca EXIF
+                const output = await exifr.parse(file, {
+                    gps: true,
+                });
+
+                // Tampilkan grid
+                contentGrid.style.display = 'grid';
+
+                if (!output || Object.keys(output).length === 0) {
+                    renderExif({ 'Pesan': 'Tidak ada metadata EXIF' });
+                    loadingDiv.style.display = 'none';
+                    return;
+                }
+
+                // Render EXIF
+                renderExif(output);
+
+                // Cek GPS
+                let lat = output.latitude;
+                let lon = output.longitude;
+                let latRef = output.GPSLatitudeRef;
+                let lonRef = output.GPSLongitudeRef;
+
+                if ((lat === undefined || lon === undefined) && output.GPSLatitude && output.GPSLongitude) {
+                    const coords = parseExifrCoordinates(output.GPSLatitude, output.GPSLongitude, latRef, lonRef);
+                    if (coords) {
+                        lat = coords.lat;
+                        lon = coords.lon;
+                    }
+                }
+
+                if (lat !== undefined && lon !== undefined && !isNaN(lat) && !isNaN(lon)) {
+                    // Tambahkan info GPS ke tampilan EXIF
+                    const gpsItem = document.createElement('div');
+                    gpsItem.className = 'exif-item';
+                    gpsItem.innerHTML = `<span class="exif-tag">?? Lokasi</span><span class="exif-value">${lat}, ${lon}</span>`;
+                    exifInfoDiv.appendChild(gpsItem);
+
+                    // Inisialisasi peta
+                    initGoogleMap(lat, lon);
+                } else {
+                    // Tidak ada GPS, pastikan map card tetap sembunyi
+                    mapCard.style.display = 'none';
+                }
+
+            } catch (error) {
+                exifInfoDiv.innerHTML = `<div class="exif-item"><span class="exif-tag">Error</span><span class="exif-value">${error.message}</span></div>`;
+                contentGrid.style.display = 'grid';
+            } finally {
+                loadingDiv.style.display = 'none';
+            }
+        });
+
+        // Handler jika Google Maps auth gagal
+        window.gm_authFailure = () => {
+            mapDiv.innerHTML = '<p style="padding:20px;color:red;">Google Maps API key tidak valid atau tidak memiliki izin.</p>';
+            mapCard.style.display = 'block';
+            apiNote.style.display = 'block';
+            apiNote.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Google Maps gagal dimuat. Periksa API key.';
+        };
+
+        // Sembunyikan API note jika key sudah diganti (deteksi sederhana)
+        if (document.querySelector('script[src*="key=YOUR_API_KEY"]')) {
+            // API key masih placeholder, biarkan note muncul
+        } else {
+            // Sudah diganti, coba sembunyikan note (tapi tetap muncul jika error)
+            apiNote.style.display = 'none';
+        }
+    </script>
+</body>
+</html>
