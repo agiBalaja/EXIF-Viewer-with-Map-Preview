@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EXIF Viewer - Static Map Version</title>
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-DV25BYV3TL"></script>
+    <title>EXIF Viewer - Peta OpenStreetMap</title>
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-DV25BYV3TL"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
@@ -16,6 +16,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Leaflet CSS (OpenStreetMap) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         * {
             margin: 0;
@@ -215,7 +217,7 @@
             width: 60%;
         }
 
-        /* Map Card - Static Map Version */
+        /* Map Card - OpenStreetMap (Leaflet) */
         .map-card {
             grid-column: span 2;
             background: white;
@@ -247,106 +249,6 @@
             display: none;
         }
 
-        .static-map {
-            width: 100%;
-            height: 350px;
-            background: #f1f5f9;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            padding: 20px;
-        }
-
-        .static-map i {
-            font-size: 48px;
-            color: #667eea;
-            margin-bottom: 15px;
-        }
-
-        .static-map h3 {
-            color: #2d3748;
-            margin-bottom: 10px;
-        }
-
-        .static-map p {
-            color: #718096;
-            margin-bottom: 20px;
-            max-width: 400px;
-        }
-
-        .coordinates-box {
-            background: white;
-            padding: 15px 25px;
-            border-radius: 12px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-            border: 1px solid #e2e8f0;
-            margin: 10px 0;
-        }
-
-        .coordinates-box .latlng {
-            font-size: 1.2rem;
-            font-weight: 600;
-            color: #2d3748;
-            margin-bottom: 5px;
-        }
-
-        .coordinates-box .latlng i {
-            font-size: 1rem;
-            margin-right: 5px;
-        }
-
-        .btn {
-            background: #667eea;
-            color: white;
-            border: none;
-            padding: 12px 30px;
-            border-radius: 50px;
-            font-size: 1rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            text-decoration: none;
-        }
-
-        .btn:hover {
-            background: #5a67d8;
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
-        }
-
-        .btn i {
-            font-size: 1.1rem;
-        }
-
-        /* API Key Note */
-        .api-note {
-            background: #fed7d7;
-            border: 1px solid #fc8181;
-            color: #c53030;
-            padding: 12px 20px;
-            border-radius: 12px;
-            margin-bottom: 20px;
-            font-size: 0.95rem;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .api-note i {
-            font-size: 1.2rem;
-        }
-
-        .api-note a {
-            color: #9b2c2c;
-            font-weight: 600;
-            text-decoration: underline;
-        }
-
         /* Responsive */
         @media (max-width: 768px) {
             .content-grid {
@@ -360,8 +262,10 @@
             }
         }
     </style>
-    <!-- exifr (tanpa Google Maps API) -->
+    <!-- exifr library -->
     <script src="https://cdn.jsdelivr.net/npm/exifr@latest/dist/lite.umd.js"></script>
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
     <div class="container">
@@ -370,7 +274,7 @@
             EXIF Explorer
         </h1>
         <div class="subtitle">
-            Unggah foto untuk melihat metadata EXIF, pratinjau gambar, dan lokasi pengambilan (jika tersedia).
+            Unggah foto untuk melihat metadata EXIF, pratinjau gambar, dan lokasi pengambilan (OpenStreetMap).
         </div>
 
         <!-- Upload area -->
@@ -406,14 +310,12 @@
                 </div>
             </div>
 
-            <!-- Map card (akan muncul jika ada GPS) -->
+            <!-- Map card (OpenStreetMap) -->
             <div class="map-card" id="mapCard" style="display: none;">
                 <div class="map-header">
-                    <i class="fas fa-map-marker-alt"></i> Lokasi Pengambilan
+                    <i class="fas fa-map-marked-alt"></i> Lokasi Pengambilan (OpenStreetMap)
                 </div>
-                <div id="mapContainer" class="static-map">
-                    <!-- Akan diisi JavaScript -->
-                </div>
+                <div id="map"></div>
             </div>
         </div>
     </div>
@@ -427,34 +329,31 @@
         const previewImg = document.getElementById('preview');
         const exifInfoDiv = document.getElementById('exifInfo');
         const mapCard = document.getElementById('mapCard');
-        const mapContainer = document.getElementById('mapContainer');
+        const mapDiv = document.getElementById('map');
 
-        // Fungsi untuk menampilkan peta statis dengan koordinat
-        function showStaticMap(lat, lon) {
+        // Variabel Leaflet
+        let map = null;
+        let marker = null;
+
+        // Fungsi untuk menginisialisasi Leaflet map
+        function initLeafletMap(lat, lon) {
             mapCard.style.display = 'block';
-            
-            // Buat link Google Maps
-            const googleMapsLink = `https://www.google.com/maps?q=${lat},${lon}`;
-            const openStreetMapLink = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=15/${lat}/${lon}`;
-            
-            mapContainer.innerHTML = `
-                <i class="fas fa-map-marked-alt"></i>
-                <h3>Lokasi Foto Ditemukan!</h3>
-                <p>Foto ini memiliki data koordinat GPS:</p>
-                <div class="coordinates-box">
-                    <div class="latlng"><i class="fas fa-latitude"></i> Latitude: ${lat.toFixed(6)}</div>
-                    <div class="latlng"><i class="fas fa-longitude"></i> Longitude: ${lon.toFixed(6)}</div>
-                </div>
-                <p style="margin-bottom: 15px;">Klik tombol di bawah untuk melihat peta interaktif:</p>
-                <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-                    <a href="${googleMapsLink}" target="_blank" class="btn">
-                        <i class="fab fa-google"></i> Buka di Google Maps
-                    </a>
-                    <a href="${openStreetMapLink}" target="_blank" class="btn" style="background: #2d3748;">
-                        <i class="fas fa-map"></i> OpenStreetMap
-                    </a>
-                </div>
-            `;
+            mapDiv.style.display = 'block';
+
+            // Jika map sudah ada, hapus dulu
+            if (map) {
+                map.remove();
+            }
+
+            map = L.map('map').setView([lat, lon], 15);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                maxZoom: 19
+            }).addTo(map);
+
+            marker = L.marker([lat, lon]).addTo(map)
+                .bindPopup('📍 Foto diambil di sini')
+                .openPopup();
         }
 
         // Konversi koordinat dari format EXIF ke desimal
@@ -562,6 +461,7 @@
             loadingDiv.style.display = 'block';
             contentGrid.style.display = 'none';
             mapCard.style.display = 'none';
+            mapDiv.style.display = 'none';
             previewImg.src = '';
 
             // Preview gambar
@@ -610,10 +510,9 @@
                     gpsItem.innerHTML = `<span class="exif-tag">📍 Lokasi (Desimal)</span><span class="exif-value">${lat.toFixed(6)}, ${lon.toFixed(6)}</span>`;
                     exifInfoDiv.appendChild(gpsItem);
 
-                    // Tampilkan peta statis dengan link
-                    showStaticMap(lat, lon);
+                    // Tampilkan peta OpenStreetMap
+                    initLeafletMap(lat, lon);
                 } else {
-                    // Tidak ada GPS
                     mapCard.style.display = 'none';
                 }
 
